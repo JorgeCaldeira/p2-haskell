@@ -5,6 +5,7 @@ import BaralhosExemplo
 import Data.List
 data Baralho =  Baralho {cartas::[String]}
     deriving (Show, Eq, Ord)
+    
 
 converte :: [String] -> Baralho
 converte xs = Baralho xs
@@ -37,17 +38,13 @@ terminado :: EstadoJogo -> Bool
 terminado t = (tamanho (baralho t) <= 20) || (creditos t <= 0)
 
 instance Show EstadoJogo where
-    show s = "jogador: " ++ Prelude.show (cartasJogador s) ++ "\ncasa: " ++ Prelude.show (cartasCasa s) ++ "\ncreditos: " ++ Prelude.show(creds s)
-        --unlines ["jogador: " ++  Prelude.show (cartasJogador s), "casa: " ++ Prelude.show (cartasCasa s) , "creditos: " ++ Prelude.show(creds s) ]
+    show s = --"jogador: " ++ Prelude.show (cartasJogador s) ++ "\ncasa: " ++ Prelude.show (cartasCasa s) ++ "\ncreditos: " ++ Prelude.show(creds s)
+        unlines ["jogador: " ++  Prelude.show (cartasJogador s), "casa: " ++ Prelude.show (cartasCasa s) , "creditos: " ++ Prelude.show(creds s) ]
         --intercalate "\n" ["jogador: " ++ Prelude.show (cartasJogador s), "casa: " ++ Prelude.show (cartasCasa s), "creditos: " ++ Prelude.show (creds s)]
 
 -- mudar argumentos? 
 data Estrategia = Estrategia {aposta :: Int,
                               jogada :: Jogada,
-                              maoJogador :: Baralho,
-                              maoCasa :: Baralho,
-                              deckAtual :: Baralho,
-                              creditosAtuais :: Int,
                               descricao :: String}  
 
 
@@ -58,10 +55,6 @@ data Jogada = Stand | Hit
 sempreStand :: Estrategia
 sempreStand = Estrategia {aposta = 5,
                           jogada = Stand,
-                          maoJogador = []{-alterar-},
-                          maoCasa = []{-alterar-},
-                          deckAtual = []{-alterar-},
-                          creditosAtuais = creditosAtuais - aposta
                           descricao = "apostar sempre 5 créditos, fazer sempre stand"}
 
 
@@ -69,28 +62,31 @@ sempreStand = Estrategia {aposta = 5,
 sempreHit :: Estrategia
 sempreHit = Estrategia {aposta = 5,
                           jogada = Hit,
-                          maoJogador = []{-alterar-},
-                          maoCasa = []{-alterar-},
-                          deckAtual = []{-alterar-},
-                          creditosAtuais = creditosAtuais - aposta,
                           descricao = "apostar sempre 5 créditos, fazer sempre hit"}
 
 --perceber e alterar
-estrategia3 :: Estrategia
-estrategia3 = {aposta = 5,
+{--estrategia3 :: Estrategia
+estrategia3 = { aposta = 5,
                jogada = Stand,
-               maoJogador = []{-alterar-},
-               maoCasa = []{-alterar-},
-               deckAtual = []{-alterar-},
-               creditosAtuais = creditosAtuais - aposta,
                descricao = "a definir"}
-
+--}
 {-simula uma ronda do jogo Blackjack, utilizando a estratégia dada. A função
 devolve o estado de jogo no final da ronda (atualizando o valor dos créditos e
 do baralho).
 -}
-simulaJogo :: Estrategia -> EstadoJogo -> EstadoJogo
+simulaRonda :: Estrategia -> EstadoJogo -> EstadoJogo
+simulaRonda strat state = if (not (terminado state))
+    then (simulaRonda Estrategia {creds = (creditos state)  - strat.aposta}) else ()
+
+
+{-dada uma
+estratégia do jogador e um baralho, corre uma simulação de um jogo
+completo de Blackjack, com um saldo inicial de 100 créditos. A função
+devolve o número de créditos do jogador no final da simulação.-}
+simulaJogo :: Estrategia -> Baralho -> Int
 simulaJogo strat state = 
+
+}
 
 instance Show Estrategia where 
     show s = "Estrategia: " ++ descricao s
