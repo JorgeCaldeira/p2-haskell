@@ -17,3 +17,4 @@ baralhoPerdido = ["TS", "7D", "5S", "AS", "TC", "2H"] ++ baralhoInsuficiente
 
 baralhoGanho :: [String] -- sempreStand 110, sempreHit 105
 baralhoGanho = ["TS", "4D", "JS", "5S", "7S", "AC"] ++ baralhoInsuficiente
+
