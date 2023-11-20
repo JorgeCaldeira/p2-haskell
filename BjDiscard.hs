@@ -1,4 +1,4 @@
--- fc58214, fc59... --
+-- fc58214, fc59786 --
 
 module BjDiscard where
 import BaralhosExemplo
@@ -41,7 +41,7 @@ terminado :: EstadoJogo -> Bool
 terminado t = (tamanho (baralho t) <= 20) || (creditos t <= 0)
 
 rondaTerm :: EstadoJogo -> Bool
-rondaTerm state = tamanho (curDeck (state)) <= 20 || valoresMao (cartasJogador (state)) >= 21 ||
+rondaTerm state = tamanho (curDeck (state)) <= 20 || valoresMao (cartasJogador (state)) > 21 ||
                      valoresMao (cartasCasa (state)) >= 21
 
 instance Show EstadoJogo where
@@ -55,49 +55,64 @@ data Estrategia = Estrategia {aposta :: Int,
                               descricao :: String}  
 
 data Jogada = Stand | Hit
-    deriving (Eq)
+    deriving (Eq, Show)
 
 
---falta perceber estes construtores
+
 sempreStand :: Estrategia
 sempreStand = Estrategia {aposta = 5,
                           jogada = repeat Stand,
                           descricao = "apostar sempre 5 creditos, fazer sempre stand"}
 
 
---falta perceber estes construtores
+
 sempreHit :: Estrategia
 sempreHit = Estrategia {aposta = 5,
                           jogada = repeat Hit,
                           descricao = "apostar sempre 5 creditos, fazer sempre hit"}
 
---perceber e alterar
+--alterar
 estrategia3 :: Estrategia
 estrategia3 = Estrategia{aposta = 5,
-               jogada = [Stand],
+               jogada = cycle [Hit, Stand],
                descricao = "a definir"}
-
+    
 {-simula uma ronda do jogo Blackjack, utilizando a estratégia dada. A função
 devolve o estado de jogo no final da ronda (atualizando o valor dos créditos e
 do baralho).
 -}
 simulaRonda :: Estrategia -> EstadoJogo -> EstadoJogo
-simulaRonda (Estrategia a js desc) (EstadoJogo d c cj cc t) = if rondaTerm estadoInicial then estadoInicial else estadoInicial
+simulaRonda (Estrategia a js desc) (EstadoJogo (x:y:z:w:d) c cj cc t) = if rondaTerm estadoInicial 
+                                                              then estadoInicial 
+                                                              else escolheJogada (Estrategia a js desc) estadoInicial
     where 
-        estadoInicial = (EstadoJogo (drop 4 d) (c - a) (take 2 d) (take 2 (drop 2 d)) (rondaTerm estadoInicial))
+        estadoInicial = (EstadoJogo d (c - a) ([x,y]) ([z,w]) (rondaTerm estadoInicial))
         
-
-
+escolheJogada :: Estrategia -> EstadoJogo -> EstadoJogo
+escolheJogada (Estrategia a (j:js) desc) (EstadoJogo d c cj cc t) = if t
+                                                                then updateCreds (Estrategia a (j:js) desc) (EstadoJogo d c cj cc t)
+                                                                else
+                                                                    if (j == Hit) && (valoresMao cj /= 21)  
+                                                                    then escolheJogada (Estrategia a js desc) (jogadaHit (EstadoJogo d c cj cc t))
+                                                                    else escolheJogada (Estrategia a js desc) (jogadaStand (EstadoJogo d c cj cc t))
 jogadaHit :: EstadoJogo -> EstadoJogo
 jogadaHit (EstadoJogo d c cj cc t) =  if tamanho (tail d) > 0 
-                                                            then (EstadoJogo (tail d) c (cj ++ [head d]) cc (tamanho d<=20 || valoresMao (cj ++ [head d]) >= 21 || valoresMao cc >= 21))
+                                                            then (EstadoJogo (tail d) c (cj ++ [head d]) cc (tamanho d<=20 || valoresMao (cj ++ [head d]) > 21 || valoresMao cc >= 17))
                                                             else (EstadoJogo d c cj cc True)
 
 jogadaStand :: EstadoJogo -> EstadoJogo  
-jogadaStand (EstadoJogo d c cj cc t) = if tamanho (tail d) > 0
-                                                             then (EstadoJogo (tail d) c cj (cc ++ [head d]) (tamanho d <= 20 || valoresMao cj >= 21 || valoresMao (cc ++ [head d]) >= 21))                                               
-                                                             else (EstadoJogo d c cj cc (tamanho d <= 20 || valoresMao cj >= 21 || valoresMao (cc ++ [head d]) >= 21))
+jogadaStand (EstadoJogo d c cj cc t) = if (tamanho (tail d) > 0 && valoresMao cc < 17)
+                                                             then 
+                                                                (if valoresMao (cc ++ [head d]) < 17
+                                                                then jogadaStand (EstadoJogo (tail d) c cj (cc ++ [head d]) (tamanho d <= 20 || valoresMao cj >= 21 || valoresMao (cc ++ [head d]) >= 17))
+                                                                else  (EstadoJogo (tail d) c cj (cc ++ [head d]) (tamanho d <= 20 || valoresMao cj > 21 || valoresMao (cc ++ [head d]) >= 17))                                               
+                                                             )else (EstadoJogo d c cj cc (tamanho d <= 20 || valoresMao cj > 21 || valoresMao (cc ++ [head d]) >= 17))
 
+
+
+ {--then (EstadoJogo (tail d) c cj (cc ++ [head d]) (tamanho d <= 20 || valoresMao cj >= 21 || valoresMao (cc ++ [head d]) >= 17))                                               
+                                                             else (EstadoJogo d c cj cc (tamanho d <= 20 || valoresMao cj >= 21 || valoresMao (cc ++ [head d]) >= 17))
+--}
 {--if 
 case (head js) of Hit -> simulaRonda (Estrategia a (tail js) desc) (jogadaHit estadoInicial)
                               Stand -> simulaRonda (Estrategia a (tail js) desc) (jogadaStand estadoInicial)
@@ -105,46 +120,67 @@ case (head js) of Hit -> simulaRonda (Estrategia a (tail js) desc) (jogadaHit es
 
 
 
-playByPlay :: Estrategia -> EstadoJogo -> EstadoJogo -> EstadoJogo
-playByPlay (Estrategia aposta jogada descricao) initState state2 = 
-                                    if (head jogada == Hit) && (not $ rondaTerm initState) && (not $ rondaTerm state2)
-                                    then (playByPlay (Estrategia aposta (tail jogada) descricao) state2 playerHits)  
-                                    else (playByPlay (Estrategia aposta (tail jogada) descricao) state2 houseHits)
-    where   
-        playerHits = EstadoJogo{curDeck = tail (baralho initState),
-                                    creds = creds initState,
-                                    cartasJogador = (cartasJogador initState)++ [head (baralho initState)],
-                                    cartasCasa = cartasCasa initState,
-                                    rondaTerminada = rondaTerm playerHits || tamanho (curDeck playerHits) <= 20 
-                                    || valoresMao (cartasJogador playerHits) >= 21 || valoresMao (cartasCasa playerHits) >= 21}
-
-        houseHits = EstadoJogo{curDeck = tail (baralho initState),
-                                    creds = creds initState,
-                                    cartasJogador = cartasJogador initState,
-                                    cartasCasa = (cartasCasa initState) ++ [head (baralho initState)],
-                                    rondaTerminada = rondaTerm houseHits || tamanho (curDeck houseHits) <= 20 
-                                    || valoresMao (cartasJogador houseHits) >= 21 || valoresMao (cartasCasa houseHits) >= 21}         
+        
 --}
 {-dada uma
 estratégia do jogador e um baralho, corre uma simulação de um jogo
 completo de Blackjack, com um saldo inicial de 100 créditos. A função
 devolve o número de créditos do jogador no final da simulação.-}
---imulaJogo:: Estrategia -> Baralho -> Int
+--simulaJogo:: Estrategia -> Baralho -> Int
 --simulaJogo strat deck = 
 
 
 instance Show Estrategia where 
     show s = "Estrategia: " ++ descricao s
 
-valoresMao :: [String]-> Int
+{--valoresMao :: [String]-> Int
 valoresMao d = foldl(\acc x -> b x acc) 0 d
     where b x acc
             | head x == 'A' = if (acc + 11 > 21) then (acc + 1) else (acc + 11)
             | elem (head x) "23456789" =  acc + digitToInt (head x)
             | otherwise = acc + 10
+--}
+escolheValores :: [String] -> Int
+escolheValores d = if (valoresA11 d) <= 21 then valoresA11 d else valoresA1 d
 
+valoresA1 :: [String] -> Int
+valoresA1 d = foldl(\acc x -> b x acc) 0 d
+    where b x acc
+            | head x == 'A' = acc + 1
+            | elem (head x) "23456789" =  acc + digitToInt (head x)
+            | otherwise = acc + 10
 
+valoresA11 :: [String] -> Int
+valoresA11 d = foldl(\acc x -> b x acc) 0 d
+    where b x acc
+            | head x == 'A' =  (acc + 11)
+            | elem (head x) "23456789" =  acc + digitToInt (head x)
+            | otherwise = acc + 10
+            
+--updateCreds :: EstadoJogo -> Estrategia -> EstadoJogo
+--updateCreds (Estrategia a js desc) (EstadoJogo d c cj cc t) = case x of (((valoresMao cj) < (valoresMao cc) && (valoresMao cj) <= 21) || (valoresMao cc > 21)) -> (EstadoJogo d (c+10) cj cc t)
+ --                                                                       (valores cj == valoresMao cc && valoresMao <= 21) -> (EstadoJogo d (c+a) cj cc t)
+   --                                                                     otherwise -> (EstadoJogo d c cj cc t)
 
+updateCreds :: Estrategia -> EstadoJogo -> EstadoJogo
+updateCreds (Estrategia a js desc) (EstadoJogo d c cj cc t) =
+  case x of
+    True  -> EstadoJogo d c cj cc t
+    False -> case y of
+      True  -> EstadoJogo d (c + a) cj cc t
+      False -> EstadoJogo d (c + 2*a) cj cc t
+  where
+    x = (valoresMao cj < valoresMao cc && valoresMao cc <= 21)|| valoresMao cj > 21
+    y = valoresMao cj == valoresMao cc && valoresMao cj <= 21
 
-
-data Result = W | D | L
+valoresMao :: [String] -> Int
+valoresMao [] = 0
+valoresMao (d:dx) = if (elem (head d) "23456789")
+                 then (digitToInt (head d) + valoresMao dx)
+                 else 
+                    (if (head d == 'A')
+                    then 
+                        (if ((11 + valoresMao dx) <= 21)
+                        then (11 + valoresMao dx)
+                        else (1 + valoresMao dx)
+                    )else (10 + valoresMao dx))
